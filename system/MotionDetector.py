@@ -21,6 +21,7 @@ import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
+cv2_version = cv2.__version__
 
 class MotionDetector(object):
     """The MotionDetector Object recieves frames captured from 
@@ -42,7 +43,7 @@ class MotionDetector(object):
     def reset_background_model(self):
         self.history = 0
 
-    def detect_movement(self,frame, get_rects):
+    def detect_movement(self,frame, get_rects, grayFrame=None):
             # Calculate mean standard deviation then determine if motion has actually accurred
             height, width, channels = frame.shape
 
@@ -52,7 +53,10 @@ class MotionDetector(object):
 
             # Resize the frame, convert it to grayscale, filter and blur it
             logger.debug('////////////////////// filtering 1 //////////////////////')
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  
+            if grayFrame is not None:
+                gray = grayFrame
+            else:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
             logger.debug('////////////////////// filtering 1.5 //////////////////////')
             gray = clahe.apply(gray)
@@ -86,7 +90,8 @@ class MotionDetector(object):
                     return occupied,  self.peopleRects 
                 else:
                     return occupied,  frame
-            elif self.history > 4000 and len(self.peopleRects) == 0: # Recalculate background model every 4000 frames only if there are no people in frame 
+            elif self.history > 4000 and len(self.peopleRects) == 0: 
+                # Recalculate background model every 4000 frames only if there are no people in frame 
                 self.previousFrame = self.currentFrame
                 self.currentFrame = gray
                 self.history = 0
@@ -97,8 +102,10 @@ class MotionDetector(object):
             thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel) # Removes small holes i.e noise
             thresh = cv2.dilate(thresh, kernel, iterations=3) # Increases white region by saturating blobs
             cv2.imwrite("motion.jpg", thresh)
-            #(cnts, _) = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            (_, cnts, _) = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if cv2_version.startswith("4"):
+                (cnts, _) = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            else:
+                (_, cnts, _) = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             logger.debug('////////////////////// filtering & thresholding //////////////////////')
             self.peopleRects = []

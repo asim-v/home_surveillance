@@ -21,35 +21,82 @@ import dlib
 from PIL import Image
 import threading
 import logging
-import ImageUtils
+#import ImageUtils
+import time
+import numpy as np
+
+if dlib.cuda.get_num_devices()>0:
+    print("FaceDetector DLIB using CUDA")
+    dlib.DLIB_USE_CUDA = True
+
+modelFile = "models/opencv_face_detector_uint8.pb"
+configFile = "models/opencv_face_detector.pbtxt"        
+
+accurate_modelFile = "models/res10_300x300_ssd_iter_140000_fp16.caffemodel"
+accurate_configFile = "models/deploy.prototxt"
 
 class FaceDetector(object):
     """This class implements both OpenCV's Haar Cascade
     detector and Dlib's HOG based face detector"""
 
     def __init__(self):
-        self.facecascade = cv2.CascadeClassifier("cascades/haarcascade_frontalface_alt2.xml")
-        self.facecascade2 = cv2.CascadeClassifier("cascades/haarcascade_frontalface_alt2.xml")
+        self.facecascade = cv2.CascadeClassifier("models/haarcascade_frontalface_alt2.xml")
+        self.facecascade2 = cv2.CascadeClassifier("models/haarcascade_frontalface_alt2.xml")
         self.detector = dlib.get_frontal_face_detector()
+        self.net = cv2.dnn.readNetFromTensorflow(modelFile, configFile)
+        self.net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+        self.net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+        self.acc_net = cv2.dnn.readNetFromCaffe(accurate_configFile, accurate_modelFile)
+        self.acc_net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+        self.acc_net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+        
         self.cascade_lock = threading.Lock()
         self.accurate_cascade_lock = threading.Lock()
 
 
-    def detect_faces(self,image,dlibDetector):
+    def detect_faces(self, image, dlibDetector):
          if dlibDetector:
             return self.detect_dlib_face(image)
          else:
-            return self.detect_cascade_face(image)
+            #return self.detect_cascade_face(image)
+            return self.detect_dnn_face(image)
 
     def pre_processing(self,image):
          """Performs CLAHE on a greyscale image"""
-         grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+         gray = image
+         print("COLOR_BGR2GRAY")
+         #gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
          clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-         cl1 = clahe.apply(grey)
+         cl1 = clahe.apply(gray)
          # cv2.imwrite('clahe_2.jpg',cl1)
          return cl1
 
-
+    def detect_dnn_face(self, image, accurate=False):
+        start = time.time()
+        frameHeight, frameWidth, channels = image.shape
+        blob = cv2.dnn.blobFromImage(image, 1.0, (300, 300), [104, 117, 123], False, False)
+        if accurate:
+            self.acc_net.setInput(blob)
+            detections = self.acc_net.forward()
+        else:
+            self.net.setInput(blob)
+            detections = self.net.forward()
+        bboxes = []
+        confidence = 0
+        for i in range(detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+            if confidence > 0.9:
+                x1 = int(detections[0, 0, i, 3] * frameWidth)
+                y1 = int(detections[0, 0, i, 4] * frameHeight)
+                x2 = int(detections[0, 0, i, 5] * frameWidth)
+                y2 = int(detections[0, 0, i, 6] * frameHeight)
+                r = dlib.rectangle(x1,y1,x2,y2)
+                bboxes.append(r)
+        #if bboxes:
+        #    print("cv2 dnn ", time.time() - start, bboxes)
+        return bboxes
+        
+    
     def rgb_pre_processing(self,image):
         """Performs CLAHE on each RGB components and rebuilds final
         normalised RGB image - side note: improved face detection not recognition"""
@@ -85,14 +132,17 @@ class FaceDetector(object):
         return bbs  
 
     def detect_cascade_face(self,image):
-       
+        #print(">detect_cascadeface")
         with self.cascade_lock:  # Used to block simultaneous access to resource, stops segmentation fault when using more than one camera
-            image = self.pre_processing(image)
-            rects = self.facecascade.detectMultiScale(image, scaleFactor=1.25, minNeighbors=3, minSize=(20, 20), flags = cv2.CASCADE_SCALE_IMAGE)
+            #image = self.pre_processing(image)
+            #rects = self.facecascade.detectMultiScale(image, scaleFactor=1.25, minNeighbors=3, minSize=(20, 20), flags = cv2.CASCADE_SCALE_IMAGE)
+            rects = self.detect_dnn_face(image, False)
         return rects
 
-    def detect_cascadeface_accurate(self,img):
+    def detect_cascadeface_accurate(self,image):
         """Used to help mitigate false positive detections"""
+        print(">detect_cascadeface_accurate")
         with self.accurate_cascade_lock:
-            rects = self.facecascade2.detectMultiScale(img, scaleFactor=1.02, minNeighbors=12, minSize=(20, 20), flags = cv2.CASCADE_SCALE_IMAGE)
+            #rects = self.facecascade2.detectMultiScale(img, scaleFactor=1.02, minNeighbors=12, minSize=(20, 20), flags = cv2.CASCADE_SCALE_IMAGE)
+            rects = self.detect_dnn_face(image, True)
         return rects

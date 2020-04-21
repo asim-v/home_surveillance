@@ -52,12 +52,16 @@ parser.add_argument('--cuda', action='store_true')
 parser.add_argument('--unknown', type=bool, default=False,
                     help='Try to predict unknown people')
 args = parser.parse_args()
+args.cuda = True
 
+if args.cuda and dlib.cuda.get_num_devices()>0:
+    print("ImagesUtils DLIB using CUDA")
+    dlib.DLIB_USE_CUDA = True
 
 cascade_lock = threading.Lock()
-facecascade = cv2.CascadeClassifier("cascades/haarcascade_frontalface_alt2.xml")
-uppercascade = cv2.CascadeClassifier("cascades/haarcascade_upperbody.xml")
-eyecascade = cv2.CascadeClassifier("cascades/haarcascade_eye.xml")
+facecascade = cv2.CascadeClassifier("models/haarcascade_frontalface_alt2.xml")
+uppercascade = cv2.CascadeClassifier("models/haarcascade_upperbody.xml")
+eyecascade = cv2.CascadeClassifier("models/haarcascade_eye.xml")
 detector = dlib.get_frontal_face_detector()
     
 def resize(frame):

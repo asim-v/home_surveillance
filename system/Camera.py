@@ -31,19 +31,7 @@ import FaceDetector
 
 logger = logging.getLogger(__name__)
 
-#fileDir = os.path.dirname(os.path.realpath(__file__))
-#modelDir = os.path.join(fileDir, '..', 'models')
-#dlibModelDir = os.path.join(modelDir, 'dlib')
-#openfaceModelDir = os.path.join(modelDir, 'openface')
-#parser = argparse.ArgumentParser()
-#parser.add_argument('--networkModel', type=str, help="Path to Torch network model.",
-#            default=os.path.join(openfaceModelDir, 'nn4.small2.v1.t7'))
-#parser.add_argument('--imgDim', type=int,
-#            help="Default image dimension.", default=96)
-#parser.add_argument('--cuda', action='store_true')
-#args = parser.parse_args()
-
-CAPTURE_HZ = 30.0 # Determines frame rate at which frames are captured from IP camera
+CAPTURE_HZ = 25.0 # Determines frame rate at which frames are captured from IP camera
 
 class IPCamera(object):
 	"""The IPCamera object continually captures frames
@@ -77,6 +65,15 @@ class IPCamera(object):
 		self.captureEvent = threading.Event()
 		self.captureEvent.set()
 		self.peopleDictLock = threading.Lock() # Used to block concurrent access to people dictionary
+		uri = camURL
+		latency = 100
+		width = 1280
+		height = 720 #738
+		framerate = 25
+		gst_str = ("rtspsrc location={} latency={} ! rtph264depay ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw, width=(int){}, height=(int){}, framerate={}/1, format=(string)BGRx ! videoconvert ! appsink").format(uri, latency, width, height, framerate)
+        #gst_str = ("rtspsrc location={} latency={} ! queue ! rtph264depay ! queue ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw,format=BGRx ! videoconvert ! video/x-raw,format=BGR ! appsink").format(uri, latency)    
+
+		#self.video = cv2.VideoCapture(gst_str, cv2.CAP_GSTREAMER)
 		self.video = cv2.VideoCapture(camURL) # VideoCapture object used to capture frames from IP camera
 		logger.info("We are opening the video feed.")
 		self.url = camURL

@@ -79,6 +79,10 @@ parser.add_argument('--unknown', type=bool, default=False,
 args = parser.parse_args()
 args.cuda = True
 
+if args.cuda and dlib.cuda.get_num_devices()>0:
+    print("FaceRecogniser DLIB using CUDA")
+    dlib.DLIB_USE_CUDA = True
+
 class FaceRecogniser(object):
     """This class implements face recognition using Openface's
     pretrained neural network and a Linear SVM classifier. Functions
@@ -157,11 +161,8 @@ class FaceRecogniser(object):
         if bgrImg is None:
             logger.error("unable to load image")
             return None
-        #print("bgrImg", bgrImg)
         logger.info("Tweaking the face color ")
         img = cv2.cvtColor(bgrImg, cv2.COLOR_BGR2RGB)
-        #img = bgrImg.getRGB()
-        #
         img = cv2.resize(img, (96, 96), interpolation=cv2.INTER_LINEAR)
         img = np.transpose(img, (2, 0, 1))
         img = img.astype(np.float32) / 255.0
@@ -171,8 +172,6 @@ class FaceRecogniser(object):
         I_ = torch.from_numpy(img).unsqueeze(0)
         if args.cuda:
             I_ = I_.cuda()
-
-        #print("I_", I_)
         rep = self.net.forward(I_) # Gets embedding - 128 measurements
         return rep
     
@@ -349,10 +348,6 @@ class FaceRecogniser(object):
         """Returns number between 0-4, Openface calculated the mean between
         similar faces is 0.99 i.e. returns less than 0.99 if reps both belong
         to the same person"""
-        #print("rep1",rep1)
-        #print("rep2",rep2)        
-        #d = rep1 - rep2
-        #d =  np.sum(np.square(rep1.detach().numpy() - rep2.detach().numpy()))
         d = torch.norm(rep1 - rep2, 2, 1).item()
-        print("d", d)        
+        print("distance", d)        
         return d
