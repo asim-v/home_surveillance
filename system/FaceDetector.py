@@ -18,7 +18,7 @@
 
 import cv2
 import dlib
-from PIL import Image
+#from PIL import Image
 import threading
 import logging
 #import ImageUtils
@@ -92,8 +92,6 @@ class FaceDetector(object):
                 y2 = int(detections[0, 0, i, 6] * frameHeight)
                 r = dlib.rectangle(x1,y1,x2,y2)
                 bboxes.append(r)
-        #if bboxes:
-        #    print("cv2 dnn ", time.time() - start, bboxes)
         return bboxes
         
     
@@ -109,8 +107,8 @@ class FaceDetector(object):
         B = clahe.apply(B)
      
         filtered = cv2.merge([B, G, R])
-        cv2.imwrite('notfilteredRGB.jpg',image)
-        cv2.imwrite('filteredRGB.jpg',filtered)
+        #cv2.imwrite('notfilteredRGB.jpg',image)
+        #cv2.imwrite('filteredRGB.jpg',filtered)
         return filtered
 
 

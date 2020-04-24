@@ -55,7 +55,7 @@ args = parser.parse_args()
 args.cuda = True
 
 if args.cuda and dlib.cuda.get_num_devices()>0:
-    print("ImagesUtils DLIB using CUDA")
+    print("ImageUtils DLIB using CUDA")
     dlib.DLIB_USE_CUDA = True
 
 cascade_lock = threading.Lock()
@@ -102,7 +102,7 @@ def draw_boxes(image, rects, dlibrects):
 def draw_rects_cv(img, rects, color=(0, 40, 255)):
     overlay = img.copy()
     output = img.copy()
-    count = 1
+    #count = 1
     for x, y, w, h in rects:
         cv2.rectangle(overlay, (x, y), (x+w, y+h), color, 2)
         cv2.addWeighted(overlay, 0.5, output, 0.5, 0, output)

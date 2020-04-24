@@ -35,11 +35,11 @@ from logging.handlers import RotatingFileHandler
 import threading
 import time
 from datetime import datetime, timedelta
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
+#import smtplib
+#from email.mime.multipart import MIMEMultipart
+#from email.mime.text import MIMEText
+#from email.mime.base import MIMEBase
+#from email import encoders
 import requests
 import json
 import Camera
@@ -283,10 +283,12 @@ class SurveillanceSystem(object):
 
                     training_blocker = self.trainingEvent.wait()  
 
-                    frame = cv2.flip(frame, 1) # converts frame from BGR (OpenCV format) to RGB (Dlib format)
-                    camera.faceBoxes = camera.faceDetector.detect_faces(frame,camera.dlibDetection) 
+                    #frame = cv2.flip(frame, 1) # converts frame from BGR (OpenCV format) to RGB (Dlib format)
+                    #rgbFrame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    camera.faceBoxes = camera.faceDetector.detect_faces(frame, camera.dlibDetection) 
                     if self.drawing == True:
-                         frame = ImageUtils.draw_boxes(frame, camera.faceBoxes, camera.dlibDetection)
+                        #frame = ImageUtils.draw_boxes(frame, camera.faceBoxes, camera.dlibDetection)
+                        frame = ImageUtils.draw_boxes(frame, camera.faceBoxes, True) # OpenCV DNN returns dlib.rectangle
                     camera.processing_frame = frame
                     if len(camera.faceBoxes) > 0:
                         print('////  FACES DETECTED: '+ str(len(camera.faceBoxes)) +' //')
@@ -295,12 +297,12 @@ class SurveillanceSystem(object):
                     for face_bb in camera.faceBoxes: 
                         # Used to reduce false positives from opencv haar cascade detector.
                         # If face isn't detected using more rigorous paramters in the detectMultiscale() function read the next frame               
-                        if camera.dlibDetection == False:
-                              x, y, w, h = face_bb
-                              face_bb = dlib.rectangle(int(x), int(y), int(x+w), int(y+h))
-                              faceimg = ImageUtils.crop(frame, face_bb, dlibRect = True)
-                              if len(camera.faceDetector.detect_cascadeface_accurate(faceimg)) == 0:
-                                    continue
+                        #if camera.dlibDetection == False:
+                        #      x, y, w, h = face_bb
+                        #      face_bb = dlib.rectangle(int(x), int(y), int(x+w), int(y+h))
+                        faceimg = ImageUtils.crop(frame, face_bb, dlibRect = True)
+                        if len(camera.faceDetector.detect_cascadeface_accurate(faceimg)) == 0:
+                            continue
 
                         # returns a dictionary that contains name, confidence and representation and an alignedFace (numpy array)
                         predictions, alignedFace = self.recogniser.make_prediction(frame,face_bb) 
@@ -783,17 +785,9 @@ class SurveillanceSystem(object):
 
     def take_action(self,alert): 
         """Sends email alert and/or triggers the alarm"""
-
         logger.info( "Taking action: ==" + json.dumps(alert.actions))
         if alert.action_taken == False: # Only take action if alert hasn't accured - Alerts reinitialise every 5 min for now
             alert.eventTime = time.time()  
-            if alert.actions['email_alert'] == 'true':
-                logger.info( "email notification being sent")
-                self.send_email_notification_alert(alert)
-            if alert.actions['trigger_alarm'] == 'true':
-                logger.info( "triggering alarm1")
-                self.trigger_alarm()
-                logger.info( "alarm1 triggered")
             if alert.actions['mycroft_message'] == 'true':
                 logger.info( "mycroft notification being sent")
                 self.send_mycroft_notification_alert(alert)
@@ -802,6 +796,7 @@ class SurveillanceSystem(object):
                 self.send_apprise_notification_alert(alert)
             
             alert.action_taken = True
+
             
     def send_apprise_notification_alert(self,alert):
         # send a push message with Apprise - see https://github.com/caronc/apprise
@@ -828,6 +823,7 @@ class SurveillanceSystem(object):
         print("attachment", attachment)
         self.apobj.notify(body=alert.alertString, title='Home Surveilance', attach=attachment)
 
+        
     def send_mycroft_notification_alert(self,alert):
         print(">>>Mycroft<<<", alert.alertString)
         host = '' # set hostname or IP of your Mycroft device here
@@ -838,43 +834,7 @@ class SurveillanceSystem(object):
             result = ws.send(message)
             print("Received '%s'" % result)
             ws.close()
-        
-      
-    def send_email_notification_alert(self,alert):
-        """ Code produced in this tutorial - http://naelshiab.com/tutorial-send-email-python/"""
 
-        print(">>> send email: {}".format(alert))
-        if True:
-            return
-
-        fromaddr = "home.face.surveillance@gmail.com"
-        toaddr = alert.emailAddress
-
-        msg = MIMEMultipart()
-       
-        msg['From'] = fromaddr
-        msg['To'] = toaddr
-        msg['Subject'] = "HOME SURVEILLANCE"
-       
-        body = "NOTIFICATION ALERT:" +  alert.alertString + ""
-       
-        msg.attach(MIMEText(body, 'plain'))
-       
-        filename = "image.png"
-        attachment = open("notification/image.png", "rb")    
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload((attachment).read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', "attachment; filename= %s" % filename)
-       
-        msg.attach(part)
-       
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(fromaddr, "facialrecognition")
-        text = msg.as_string()
-        server.sendmail(fromaddr, toaddr, text)
-        server.quit()
 
     def add_face(self,name,image, upload):
         """Adds face to directory used for training the classifier"""
@@ -916,6 +876,7 @@ class SurveillanceSystem(object):
             logger.info("Known faces in our db for: " + name + " ")
         self.peopleDB.append('unknown')
 
+        
     def change_alarm_state(self):
         """Sends Raspberry PI a resquest to change the alarm state.
         192.168.1.35 is the RPI's static IP address port 5000 is used 
@@ -931,6 +892,7 @@ class SurveillanceSystem(object):
             self.alarmState = 'Disarmed'       
         self.alarmTriggerd = alarm_states['triggered']
 
+        
     def trigger_alarm(self):
         """Sends Raspberry PI a resquest to change to trigger the alarm.
         192.168.1.35 is the RPI's static IP address port 5000 is used 
