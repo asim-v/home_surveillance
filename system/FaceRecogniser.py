@@ -27,7 +27,7 @@ import glob
 import dlib
 import sys
 import argparse
-from PIL import Image
+#from PIL import Image
 import pickle
 import math
 import datetime
