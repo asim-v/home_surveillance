@@ -43,9 +43,14 @@ class MotionDetector(object):
     def reset_background_model(self):
         self.history = 0
 
-    def detect_movement(self,frame, get_rects, grayFrame=None):
+    def detect_movement(self,frame, get_rects, grayFrame=False):
             # Calculate mean standard deviation then determine if motion has actually accurred
-            height, width, channels = frame.shape
+            if grayFrame:
+                height, width = frame.shape
+                gray = frame
+            else:
+                height, width, channels = frame.shape
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             text = "Unoccupied"
             occupied = False
@@ -53,10 +58,6 @@ class MotionDetector(object):
 
             # Resize the frame, convert it to grayscale, filter and blur it
             logger.debug('////////////////////// filtering 1 //////////////////////')
-            if grayFrame is not None:
-                gray = grayFrame
-            else:
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
             logger.debug('////////////////////// filtering 1.5 //////////////////////')
             gray = clahe.apply(gray)

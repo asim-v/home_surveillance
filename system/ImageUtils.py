@@ -51,10 +51,10 @@ parser.add_argument('--imgDim', type=int,
 parser.add_argument('--cuda', action='store_true')
 parser.add_argument('--unknown', type=bool, default=False,
                     help='Try to predict unknown people')
-args = parser.parse_args()
-args.cuda = True
+#args = parser.parse_args()
 
-if args.cuda and dlib.cuda.get_num_devices()>0:
+cuda = True
+if cuda and dlib.cuda.get_num_devices()>0:
     print("ImageUtils DLIB using CUDA")
     dlib.DLIB_USE_CUDA = True
 
@@ -79,10 +79,10 @@ def resize_mjpeg(frame):
     return frame  
 
 def crop(image, box, dlibRect = False):
-
-    if dlibRect == False:
-       x, y, w, h = box
-       return image[y: y + h, x: x + w] 
+    #if dlibRect == False or isinstance(box, tuple):
+    if isinstance(box, tuple):
+        x, y, w, h = box
+        return image[y: y + h, x: x + w] 
 
     return image[box.top():box.bottom(), box.left():box.right()]
 
@@ -92,11 +92,11 @@ def is_inside(o, i):
     return ox > ix and oy > iy and ox + ow < ix + iw and oy + oh < iy + ih
 
 def draw_boxes(image, rects, dlibrects):
-   if dlibrects:
-       image = draw_rects_dlib(image, rects)
-   else:
-       image = draw_rects_cv(image, rects)
-   return image
+    if dlibrects:
+        image = draw_rects_dlib(image, rects)
+    else:
+        image = draw_rects_cv(image, rects)
+    return image
 
 
 def draw_rects_cv(img, rects, color=(0, 40, 255)):
@@ -165,7 +165,7 @@ def pre_processing(image):
      grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
      clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
      cl1 = clahe.apply(grey)
-     cv2.imwrite('clahe_2.jpg',cl1)
+     #cv2.imwrite('clahe_2.jpg',cl1)
      return cl1
 
 def detect_people_cascade(image):

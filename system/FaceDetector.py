@@ -90,7 +90,8 @@ class FaceDetector(object):
                 y1 = int(detections[0, 0, i, 4] * frameHeight)
                 x2 = int(detections[0, 0, i, 5] * frameWidth)
                 y2 = int(detections[0, 0, i, 6] * frameHeight)
-                r = dlib.rectangle(x1,y1,x2,y2)
+                #r = dlib.rectangle(x1,y1,x2,y2)
+                r = (x1, y1, x2-x1, y2-y1)
                 bboxes.append(r)
         return bboxes
         
