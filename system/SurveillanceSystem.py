@@ -487,56 +487,51 @@ class SurveillanceSystem(object):
 
                 logger.debug('//// detect_recognise_track 1 ////')
                 peopleFound = False
-                camera.motion, peopleRects  = camera.motionDetector.detect_movement(frame, get_rects = True, grayFrame=grayFrame)   
+                camera.motion, peopleRects  = camera.motionDetector.detect_movement(grayFrame, get_rects = True, grayFrame=True)   
                 logger.debug('//// detect_recognise_track  2 /////')
           
                 if camera.motion == False:
-                   camera.processing_frame = frame
-                   logger.debug('///// NO MOTION DETECTED /////')
-                   continue
+                    camera.processing_frame = frame
+                    logger.debug('///// NO MOTION DETECTED /////')
+                    continue
 
                 if self.drawing == True:
                     camera.processing_frame = ImageUtils.draw_boxes(frame, peopleRects, False)
 
                 logger.debug('//// MOTION DETECTED //////')
-
-               
+             
                 for x, y, w, h in peopleRects:
-
                     peopleFound = True
-                    person_bb = dlib.rectangle(int(x), int(y), int(x+w), int(y+h)) 
-                    personimg = ImageUtils.crop(frame, person_bb, dlibRect = True)   # Crop regions of interest 
-
-                    personimg = cv2.flip(personimg, 1) 
-
+                    #person_bb = dlib.rectangle(int(x), int(y), int(x+w), int(y+h)) 
+                    personimg = ImageUtils.crop(frame, person_bb)   # Crop regions of interest 
+                    #personimg = cv2.flip(personimg, 1) 
                     tracked = False
+                    
                     # Iterate through each tracker and compare there current psotiion
-                    for i in range(len(camera.trackers) - 1, -1, -1): 
-                        
+                    for i in range(len(camera.trackers) - 1, -1, -1):                         
                         if camera.trackers[i].overlap(person_bb):
-                           logger.debug("=> Updating Tracker <=")
-                           camera.trackers[i].update_tracker(person_bb)
-                           # personimg = cv2.flip(personimg, 1)
-                           camera.faceBoxes = camera.faceDetector.detect_faces(personimg,camera.dlibDetection)  
-                           logger.debug('//////  FACES DETECTED: '+ str(len(camera.faceBoxes)) +' /////')
-                           if len(camera.faceBoxes) > 0:
-                               logger.info("Found " + str(len(camera.faceBoxes)) + " faces.")
-                           for face_bb in camera.faceBoxes: 
-
+                            logger.debug("=> Updating Tracker <=")
+                            camera.trackers[i].update_tracker(person_bb)
+                            # personimg = cv2.flip(personimg, 1)
+                            camera.faceBoxes = camera.faceDetector.detect_faces(personimg, camera.dlibDetection)  
+                            logger.debug('//////  FACES DETECTED: '+ str(len(camera.faceBoxes)) +' /////')
+                            if len(camera.faceBoxes) > 0:
+                                logger.info("Found " + str(len(camera.faceBoxes)) + " faces.")
+                            for face_bb in camera.faceBoxes: 
                                 if camera.dlibDetection == False:
-                                    if not isinstance(face_bb, dlib.rectangle):
-                                        x, y, w, h = face_bb
-                                        face_bb = dlib.rectangle(int(x), int(y), int(x+w), int(y+h))
-                                    faceimg = ImageUtils.crop(personimg, face_bb, dlibRect = True)
-                                    if len(camera.faceDetector.detect_cascadeface_accurate(faceimg)) == 0:
-                                          continue
+                                    x, y, w, h = face_bb
+                                    face_bb = dlib.rectangle(int(x), int(y), int(x+w), int(y+h))
+                                faceimg = ImageUtils.crop(personimg, face_bb)
+                                if len(camera.faceDetector.detect_cascadeface_accurate(faceimg)) == 0:
+                                    continue
 
-                                predictions, alignedFace =  self.recogniser.make_prediction(personimg,face_bb)
+                                predictions, alignedFace =  self.recogniser.make_prediction(personimg, face_bb)
                         
                                 if predictions['confidence'] > self.confidenceThreshold:
                                     predictedName = predictions['name']
                                 else:
                                     predictedName = "unknown"
+
                                 # If only one face is detected
                                 if len(camera.faceBoxes) == 1:
                                     # if not the same person check to see if tracked person is unknown 
@@ -544,48 +539,49 @@ class SurveillanceSystem(object):
                                     # l2Distance is between 0-4 
                                     # Openface found that 0.99 was the average cutoff between the same and different faces
                                     # the same face having a distance less than 0.99 
-                                    if self.recogniser.getSquaredl2Distance(camera.trackers[i].person.rep, predictions['rep']) > 0.99 and \
+                                    if self.recogniser.getSquaredl2Distance(camera.trackers[i].person.rep, 
+                                                                            predictions['rep']) > 0.99 and \
                                        (camera.trackers[i].person.identity != predictedName): 
                                       
-                                            alreadyBeenDetected = False
-                                            with camera.peopleDictLock:
-                                                    for ID, person in camera.people.items():  
-                                                        # iterate through all detected people in camera
-                                                        # if the person has already been detected continue to track that person 
-                                                        # - use same person ID
-                                                        if person.identity == predictedName or \
-                                                           self.recogniser.getSquaredl2Distance(person.rep ,predictions['rep']) < 0.8:
+                                        alreadyBeenDetected = False
+                                        with camera.peopleDictLock:
+                                            for ID, person in camera.people.items():  
+                                                # iterate through all detected people in camera
+                                                # if the person has already been detected continue to track that person 
+                                                # - use same person ID
+                                                if person.identity == predictedName or \
+                                                   self.recogniser.getSquaredl2Distance(person.rep, predictions['rep']) < 0.8:
                                                               
-                                                                person = Person(predictions['rep'],
-                                                                                predictions['confidence'], 
-                                                                                alignedFace, 
-                                                                                predictedName)
-                                                                logger.info( "====> New Tracker for " +person.identity + " <===")
-                                                                # Remove current tracker and create new one with the ID of the original person
-                                                                del camera.trackers[i]
-                                                                camera.trackers.append(Tracker(frame, person_bb, person,ID))
-                                                                alreadyBeenDetected = True
-                                                                break
+                                                    person = Person(predictions['rep'],
+                                                                    predictions['confidence'], 
+                                                                    alignedFace, 
+                                                                    predictedName)
+                                                    logger.info( "====> New Tracker for " +person.identity + " <===")
+                                                    # Remove current tracker and create new one with the ID of the original person
+                                                    del camera.trackers[i]
+                                                    camera.trackers.append(Tracker(frame, person_bb, person,ID))
+                                                    alreadyBeenDetected = True
+                                                    break
 
                                             if not alreadyBeenDetected:
-                                                    num = random.randrange(1, 1000, 1)    
-                                                    # Create a new person ID
-                                                    strID = "person" +  datetime.now().strftime("%Y%m%d%H%M%S") + str(num) 
-                                                    # Is the new person detected with a low confidence? If yes, classify them as unknown
-                                                    if predictions['confidence'] > self.confidenceThreshold:
-                                                          person = Person(predictions['rep'],
-                                                                          predictions['confidence'], 
-                                                                          alignedFace, 
-                                                                          predictions['name'])
-                                                    else:   
-                                                          person = Person(predictions['rep'],
-                                                                          predictions['confidence'], 
-                                                                          alignedFace, 
-                                                                          "unknown")
+                                                num = random.randrange(1, 1000, 1)    
+                                                # Create a new person ID
+                                                strID = "person" +  datetime.now().strftime("%Y%m%d%H%M%S") + str(num) 
+                                                # Is the new person detected with a low confidence? If yes, classify them as unknown
+                                                if predictions['confidence'] > self.confidenceThreshold:
+                                                    person = Person(predictions['rep'],
+                                                                    predictions['confidence'], 
+                                                                    alignedFace, 
+                                                                    predictions['name'])
+                                                else:   
+                                                    person = Person(predictions['rep'],
+                                                                    predictions['confidence'], 
+                                                                    alignedFace, 
+                                                                    "unknown")
                                                     #add person to detected people      
                                                     with camera.peopleDictLock:
-                                                          camera.people[strID] = person
-                                                          logger.info( "=====> New Tracker for new person <====")
+                                                        camera.people[strID] = person
+                                                        logger.info( "=====> New Tracker for new person <====")
                                                     del camera.trackers[i]
                                                     camera.trackers.append(Tracker(frame, person_bb, person,strID))
                                     # if it is the same person update confidence 
@@ -605,7 +601,8 @@ class SurveillanceSystem(object):
                                 else:
                                     logger.info( "==> More Than One Face Detected <==")
                                     # if tracker is already tracking the identified face make an update 
-                                    if self.recogniser.getSquaredl2Distance(camera.trackers[i].person.rep ,predictions['rep']) < 0.99 and \
+                                    if self.recogniser.getSquaredl2Distance(camera.trackers[i].person.rep,
+                                                                            predictions['rep']) < 0.99 and \
                                        camera.trackers[i].person.identity == predictions['name']: 
                                         if camera.trackers[i].person.confidence < predictions['confidence']:
                                             camera.trackers[i].person.confidence = predictions['confidence']
@@ -621,19 +618,17 @@ class SurveillanceSystem(object):
                                 camera.trackers[i].person.set_time()
                                 camera.trackers[i].reset_face_pinger()
                                 with camera.peopleDictLock:
-                                        camera.people[camera.trackers[i].id] = camera.trackers[i].person
-                           camera.trackers[i].reset_pinger()
-                           tracked = True
-                           break
+                                    camera.people[camera.trackers[i].id] = camera.trackers[i].person
+                            camera.trackers[i].reset_pinger()
+                            tracked = True
+                            break
 
                     # If the region is not being tracked
                     if not tracked:
-
                         # Look for faces in the cropped image of the region
                         camera.faceBoxes = camera.faceDetector.detect_faces(personimg,camera.dlibDetection)
                        
                         for face_bb in camera.faceBoxes:
-
                             if camera.dlibDetection == False:
                                 if not isinstance(face_bb, dlib.rectangle):
                                     x, y, w, h = face_bb
@@ -702,25 +697,25 @@ class SurveillanceSystem(object):
 
         logger.debug('Alert engine starting')
         while True:
-           with self.alertsLock:
-              for alert in self.alerts:
-                logger.debug('checking alert')
-                if alert.action_taken == False: # If action hasn't been taken for event 
-                    if alert.alarmState != 'All':  # Check states
-                        if  alert.alarmState == self.alarmState: 
-                            logger.debug('checking alarm state')
-                            alert.event_occurred = self.check_camera_events(alert)
+            with self.alertsLock:
+                for alert in self.alerts:
+                    logger.debug('checking alert')
+                    if alert.action_taken == False: # If action hasn't been taken for event 
+                        if alert.alarmState != 'All':  # Check states
+                            if alert.alarmState == self.alarmState: 
+                                logger.debug('checking alarm state')
+                                alert.event_occurred = self.check_camera_events(alert)
+                            else:
+                                continue # Alarm not in correct state check next alert
                         else:
-                          continue # Alarm not in correct state check next alert
+                            alert.event_occurred = self.check_camera_events(alert)
                     else:
-                        alert.event_occurred = self.check_camera_events(alert)
-                else:
-                    if (time.time() - alert.eventTime) > 300: # Reinitialize event 5 min after event accured
-                        logger.info( "reinitiallising alert: " + alert.id)
-                        alert.reinitialise()
-                    continue 
+                        if (time.time() - alert.eventTime) > 300: # Reinitialize event 5 min after event accured
+                            logger.info( "reinitiallising alert: " + alert.id)
+                            alert.reinitialise()
+                        continue 
 
-           time.sleep(2) # Put this thread to sleep - let websocket update alerts if need be (i.e delete or add)
+            time.sleep(2) # Put this thread to sleep - let websocket update alerts if need be (i.e delete or add)
   
     def check_camera_events(self,alert):   
         """Used to check state of cameras
@@ -749,12 +744,12 @@ class SurveillanceSystem(object):
             else:
                 logger.info( "alertTest4" + alert.camera)
                 if self.cameras[int(alert.camera)].motion == True: # Has motion been detected
-                       logger.info( "alertTest5" + alert.camera)
-                       cv2.imwrite("notification/image.png", self.cameras[int(alert.camera)].processing_frame)#
-                       self.take_action(alert)
-                       return True
+                    logger.info( "alertTest5" + alert.camera)
+                    cv2.imwrite("notification/image.png", self.cameras[int(alert.camera)].processing_frame)#
+                    self.take_action(alert)
+                    return True
                 else:
-                  return False # Motion was not detected check next alert
+                    return False # Motion was not detected check next alert
         else:
             if alert.event == 'Recognition': # Check events
                 with self.camerasLock :

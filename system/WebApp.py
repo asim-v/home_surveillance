@@ -110,15 +110,17 @@ def gen(camera):
     is recommended"""
     #print("camera", camera)
     while True:
-        frame = camera.read_processed()    # read_jpg()  # read_processed()    
+        frame = camera.read_processed()    # read_jpg()  
+        # Builds 'jpeg' data with header and payload
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')  # Builds 'jpeg' data with header and payload
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')  
 
 @app.route('/video_streamer/<camNum>')
 def video_streamer(camNum):
     """Used to stream frames to client, camNum represents the camera index in the cameras array"""
+    # A stream where each part replaces the previous part the multipart/x-mixed-replace content type must be used.
     return Response(gen(HomeSurveillance.cameras[int(camNum)]),
-                    mimetype='multipart/x-mixed-replace; boundary=frame') # A stream where each part replaces the previous part the multipart/x-mixed-replace content type must be used.
+                    mimetype='multipart/x-mixed-replace; boundary=frame') 
 
 @app.route('/camera_snapshot/<camNum>')
 def camera_snapshot(camNum):
@@ -131,28 +133,25 @@ def system_monitoring():
     """Pushes system monitoring data to client"""
     while True:
         cameraProcessingFPS = []
-        for camera in HomeSurveillance.cameras:
-    
+        for camera in HomeSurveillance.cameras:    
             cameraProcessingFPS.append("{0:.2f}".format(camera.processingFPS))
-            #print "FPS: " +str(camera.processingFPS) + " " + str(camera.streamingFPS)
             app.logger.info("FPS: " +str(camera.processingFPS) + " " + str(camera.streamingFPS))
         systemState = {'cpu':cpu_usage(),'memory':memory_usage(), 'processingFPS': cameraProcessingFPS}
         socketio.emit('system_monitoring', json.dumps(systemState) ,namespace='/surveillance')
         time.sleep(3)
 
 def cpu_usage():
-      psutil.cpu_percent(interval=1, percpu=False) #ignore first call - often returns 0
-      time.sleep(0.12)
-      cpu_load = psutil.cpu_percent(interval=1, percpu=False)
-      #print "CPU Load: " + str(cpu_load)
-      app.logger.info("CPU Load: " + str(cpu_load))
-      return cpu_load  
+    psutil.cpu_percent(interval=1, percpu=False) #ignore first call - often returns 0
+    time.sleep(0.12)
+    cpu_load = psutil.cpu_percent(interval=1, percpu=False)
+    app.logger.info("CPU Load: " + str(cpu_load))
+    return cpu_load  
 
 def memory_usage():
-     mem_usage = psutil.virtual_memory().percent
-     #print "System Memory Usage: " + str( mem_usage)
-     app.logger.info("System Memory Usage: " + str( mem_usage))
-     return mem_usage 
+    mem_usage = psutil.virtual_memory().percent
+    #print "System Memory Usage: " + str( mem_usage)
+    app.logger.info("System Memory Usage: " + str( mem_usage))
+    return mem_usage 
 
 @app.route('/add_camera', methods = ['GET','POST'])
 def add_camera():
@@ -204,7 +203,6 @@ def create_alert():
         notify_police = request.form.get('notify_police')
         confidence = request.form.get('confidence')
 
-        #print "unknownconfidence: " + confidence
         app.logger.info("unknownconfidence: " + confidence)
 
         actions = {'push_alert': push_alert , 'email_alert': email_alert , 
@@ -344,11 +342,11 @@ def update_faces():
         time.sleep(4)
 
 def alarm_state():
-     """Used to push alarm state to client"""
-     while True:
-            alarmstatus = {'state': HomeSurveillance.alarmState , 'triggered': HomeSurveillance.alarmTriggerd }
-            socketio.emit('alarm_status', json.dumps(alarmstatus) ,namespace='/surveillance')
-            time.sleep(3)
+    """Used to push alarm state to client"""
+    while True:
+        alarmstatus = {'state': HomeSurveillance.alarmState , 'triggered': HomeSurveillance.alarmTriggerd }
+        socketio.emit('alarm_status', json.dumps(alarmstatus) ,namespace='/surveillance')
+        time.sleep(3)
 
 
 @socketio.on('alarm_state_change', namespace='/surveillance') 
@@ -366,7 +364,8 @@ def test_message(message):   # Custom events deliver JSON payload
 
 @socketio.on('my broadcast event', namespace='/surveillance')
 def test_message(message):
-    emit('my response', {'data': message['data']}, broadcast=True) # broadcast=True optional argument all clients connected to the namespace receive the message
+    # broadcast=True optional argument all clients connected to the namespace receive the message
+    emit('my response', {'data': message['data']}, broadcast=True) 
 
                    
 @socketio.on('connect', namespace='/surveillance') 
@@ -427,16 +426,16 @@ def disconnect():
 
 
 if __name__ == '__main__':
-     # Starts server on default port 5000 and makes socket connection available to other hosts (host = '0.0.0.0')
-     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-     handler = RotatingFileHandler(LOG_FILE, maxBytes=1000000, backupCount=10)
-     handler.setLevel(logging.DEBUG)
-     handler.setFormatter(formatter)
-     app.logger.addHandler(handler)
-     app.logger.setLevel(logging.DEBUG)
+    # Starts server on default port 5000 and makes socket connection available to other hosts (host = '0.0.0.0')
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler = RotatingFileHandler(LOG_FILE, maxBytes=1000000, backupCount=10)
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(formatter)
+    app.logger.addHandler(handler)
+    app.logger.setLevel(logging.DEBUG)
 
-     log = logging.getLogger('werkzeug')
-     log.setLevel(logging.DEBUG)
-     log.addHandler(handler)
-     socketio.run(app, host='0.0.0.0', debug=False, use_reloader=False) 
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.DEBUG)
+    log.addHandler(handler)
+    socketio.run(app, host='0.0.0.0', debug=False, use_reloader=False) 
     
