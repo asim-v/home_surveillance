@@ -1,4 +1,4 @@
-This fork was heavily modified and runs with Python 3.6 on a Nvidia Jetson series (with CUDA capabilities 5.3,6.2,7.2).
+This fork was heavily modified and runs with Python 3.6 on a Nvidia Jetson series (JetPack 4.3 / L4T 32.3.x with CUDA capabilities 5.3,6.2,7.2).
 
 
 
@@ -12,7 +12,7 @@ Smart security is the future, and with the help of the open source community and
 
 ### Docker ###
 
-The docker image is based on nvcr.io/nvidia/l4t-base:r32.3.1 and was tested on a Jetson Nano, but should also run on TX1, TX2, Xavier AGX and Xavier NX
+The docker image is currently broken... <strike>based on nvcr.io/nvidia/l4t-base:r32.3.1 and was tested on a Jetson Nano, but should also run on TX1, TX2, Xavier AGX and Xavier NX</strike>
 
 ---
 1) Clone Repo
