@@ -12,7 +12,7 @@ Smart security is the future, and with the help of the open source community and
 
 ### Docker ###
 
-The docker image is currently broken... <strike>based on nvcr.io/nvidia/l4t-base:r32.3.1 and was tested on a Jetson Nano, but should also run on TX1, TX2, Xavier AGX and Xavier NX</strike>
+The docker image is currently broken. Manual build should work, see section "Build instructions" below <strike>based on nvcr.io/nvidia/l4t-base:r32.3.1 and was tested on a Jetson Nano, but should also run on TX1, TX2, Xavier AGX and Xavier NX</strike>
 
 ---
 1) Clone Repo
